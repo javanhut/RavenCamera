@@ -1,0 +1,242 @@
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Raven Camera — what only a camera has, on top of Raven Glass. Same radius
+   scale (6 · 8 · 12 · 14 · 20), same hairlines, same single accent; the one
+   exception is the record button, which is red because red means
+   "recording" everywhere.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@define-color record_color #e5484d;
+
+/* The window itself is clear; the backdrop is painted by its content, so
+   the rounded corners, the glass and a faint glow of the accent from the
+   top right all come from one place. */
+window.raven.camera, window.raven.camera.glass { background-color: transparent; }
+.camera-root {
+  background-color: #111117;
+  background-image: radial-gradient(circle at 88% -10%, alpha(@accent_bg_color, 0.13), transparent 42%),
+                    radial-gradient(circle at 0% 100%, alpha(@accent_bg_color, 0.07), transparent 40%);
+  border-radius: 14px;
+}
+window.glass .camera-root { background-color: alpha(#101016, 0.90); }
+window.maximized .camera-root, window.fullscreen .camera-root { border-radius: 0; }
+
+/* ── Top bar: brand on the left, tagline and window controls on the right ── */
+.topbar { padding: 14px 16px 10px 20px; }
+.brand-lens {
+  min-width: 46px; min-height: 46px;
+  border-radius: 999px;
+  background-image: radial-gradient(circle at 50% 50%,
+      alpha(#ffffff, 0.85) 0%, alpha(@accent_bg_color, 0.95) 14%,
+      alpha(@accent_bg_color, 0.55) 28%, #16161f 44%, #0d0d13 60%, #2a2a36 64%, #121218 72%);
+  box-shadow: 0 0 0 1px alpha(#ffffff, 0.10), 0 6px 20px alpha(@accent_bg_color, 0.30);
+}
+.brand-title { font-size: 21px; font-weight: 700; letter-spacing: -0.4px; }
+.brand-subtitle { font-size: 13px; color: alpha(@window_fg_color, 0.70); }
+.tagline {
+  font-size: 10px; font-weight: 600; letter-spacing: 2.4px;
+  color: alpha(@window_fg_color, 0.62);
+}
+.topbar windowcontrols button { min-width: 26px; min-height: 26px; }
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+.camera .sidebar { min-width: 210px; padding-top: 6px; }
+.camera .sidebar list.navigation-sidebar row { min-height: 44px; padding: 6px 12px; }
+.camera .sidebar list.navigation-sidebar row image { -gtk-icon-size: 18px; }
+.camera .sidebar list.navigation-sidebar row label { font-size: 15px; }
+.camera .sidebar list.navigation-sidebar row .badge { font-size: 10px; }
+.sidebar-footer {
+  margin: 0 12px 6px 12px;
+  font-size: 10px; font-weight: 600; letter-spacing: 2.4px; line-height: 1.8;
+  color: alpha(@window_fg_color, 0.55);
+}
+.sidebar-footer-rule { min-width: 28px; min-height: 1px; background-color: alpha(#ffffff, 0.25); margin: 0 12px 12px 12px; }
+.recording-dot { color: @record_color; -gtk-icon-size: 10px; }
+
+/* ── Source tabs ─────────────────────────────────────────────────────── */
+.source-tabs {
+  background-color: alpha(#ffffff, 0.045);
+  border: 1px solid alpha(#ffffff, 0.08);
+  border-radius: 14px;
+  padding: 4px;
+}
+.source-tabs button {
+  min-height: 44px; border-radius: 10px;
+  background-color: transparent; border: none; box-shadow: none;
+  font-weight: 500;
+}
+.source-tabs button:hover { background-color: alpha(#ffffff, 0.06); }
+.source-tabs button:checked {
+  background-image: linear-gradient(alpha(@accent_bg_color, 0.34), alpha(@accent_bg_color, 0.18));
+  box-shadow: inset 0 1px 0 alpha(#ffffff, 0.14), 0 0 0 1px alpha(@accent_bg_color, 0.45);
+  color: #ffffff;
+}
+.source-tabs image { -gtk-icon-size: 18px; }
+
+/* ── The viewfinder ──────────────────────────────────────────────────── */
+.preview-frame {
+  border-radius: 20px;
+  background-color: #0a0a0f;
+  border: 1px solid alpha(#ffffff, 0.09);
+  box-shadow: inset 0 1px 0 alpha(#ffffff, 0.06), 0 12px 40px alpha(#000000, 0.35);
+}
+.preview-frame.recording { border-color: alpha(@record_color, 0.70); box-shadow: 0 0 0 2px alpha(@record_color, 0.35), 0 12px 40px alpha(#000000, 0.35); }
+.preview-badge {
+  background-color: alpha(#0b0b10, 0.62);
+  border: 1px solid alpha(#ffffff, 0.12);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px; font-weight: 600;
+}
+.preview-badge.live { color: #ffffff; background-color: alpha(@record_color, 0.85); border-color: transparent; }
+.preview-frame dropdown > button, .preview-picker {
+  background-color: alpha(#0b0b10, 0.62);
+  border: 1px solid alpha(#ffffff, 0.12);
+  border-radius: 999px;
+  min-height: 30px;
+}
+.preview-empty .title { font-size: 20px; font-weight: 700; }
+.preview-empty image { color: alpha(@window_fg_color, 0.35); -gtk-icon-size: 56px; }
+.countdown {
+  font-size: 120px; font-weight: 800; color: #ffffff;
+  text-shadow: 0 6px 30px alpha(#000000, 0.6);
+}
+.flash { background-color: #ffffff; }
+
+/* ── The floating control bar ────────────────────────────────────────── */
+.control-bar {
+  background-color: alpha(#15151d, 0.78);
+  border: 1px solid alpha(#ffffff, 0.12);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 alpha(#ffffff, 0.08), 0 14px 40px alpha(#000000, 0.45);
+  padding: 8px 14px;
+}
+.control-bar separator { margin: 8px 4px; }
+.round {
+  min-width: 42px; min-height: 42px; padding: 0;
+  border-radius: 12px;
+  background-color: transparent; border: none; box-shadow: none;
+}
+.round:hover { background-color: alpha(#ffffff, 0.08); }
+.round:checked {
+  background-image: linear-gradient(alpha(@accent_bg_color, 0.30), alpha(@accent_bg_color, 0.16));
+  box-shadow: inset 0 0 0 1px alpha(@accent_bg_color, 0.45);
+}
+.round image { -gtk-icon-size: 20px; }
+.round.off image { color: @record_color; }
+.rec-button {
+  min-width: 68px; min-height: 68px; padding: 0;
+  border-radius: 999px;
+  background-image: radial-gradient(circle, #f0525a 0%, #d63a42 70%);
+  color: #ffffff;
+  font-weight: 800; font-size: 15px; letter-spacing: 0.5px;
+  border: 3px solid alpha(#ffffff, 0.14);
+  box-shadow: 0 0 0 4px alpha(@record_color, 0.25), 0 0 24px alpha(@accent_bg_color, 0.45), 0 6px 18px alpha(#000000, 0.45);
+  margin: 0 8px;
+}
+.rec-button:hover { background-image: radial-gradient(circle, #ff646b 0%, #e2434b 70%); }
+.rec-button:disabled { opacity: 0.5; }
+.rec-button.recording image { color: #ffffff; -gtk-icon-size: 22px; }
+.rec-button.counting { background-image: radial-gradient(circle, #8a8a96 0%, #5c5c66 70%); box-shadow: 0 0 0 4px alpha(#ffffff, 0.12); }
+.shutter {
+  min-width: 68px; min-height: 68px; padding: 0;
+  border-radius: 999px;
+  background-color: #f4f4f8;
+  border: 4px solid alpha(#ffffff, 0.30);
+  box-shadow: 0 0 0 3px alpha(#000000, 0.35), 0 6px 18px alpha(#000000, 0.40);
+  margin: 0 8px;
+}
+.shutter:hover { background-color: #ffffff; }
+.shutter image { color: #111117; -gtk-icon-size: 24px; }
+.timer {
+  font-family: monospace; font-size: 17px; font-weight: 600; letter-spacing: 0.5px;
+  min-width: 92px;
+}
+.timer.live { color: #ff6b72; }
+
+/* ── Cards on the right ──────────────────────────────────────────────── */
+.side-panel { min-width: 330px; }
+.panel-card {
+  background-color: alpha(#ffffff, 0.045);
+  border: 1px solid alpha(#ffffff, 0.08);
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 alpha(#ffffff, 0.05);
+  padding: 18px 18px 14px 18px;
+}
+.panel-card .card-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.field-label { font-size: 13px; color: alpha(@window_fg_color, 0.78); margin-top: 8px; margin-bottom: 2px; }
+.field dropdown > button, .panel-card dropdown > button, .panel-card entry { min-height: 38px; }
+.switch-row { min-height: 34px; }
+.switch-row label { font-size: 14px; }
+.inset-row {
+  background-color: alpha(#ffffff, 0.05);
+  border: 1px solid alpha(#ffffff, 0.07);
+  border-radius: 8px;
+  padding: 4px 10px;
+  min-height: 38px;
+}
+.inset-row image { color: alpha(@window_fg_color, 0.70); }
+.path-box {
+  background-color: alpha(#ffffff, 0.07);
+  border: 1px solid alpha(#ffffff, 0.07);
+  border-radius: 8px;
+  padding: 0 10px; min-height: 38px;
+}
+
+/* ── Recent captures and the media grid ──────────────────────────────── */
+.section-head { font-size: 17px; font-weight: 600; }
+.link-button { color: alpha(@window_fg_color, 0.85); background: transparent; border: none; box-shadow: none; }
+.link-button:hover { color: @accent_bg_color; background: transparent; }
+.tile { padding: 0; background: transparent; border: none; box-shadow: none; border-radius: 14px; }
+.tile:hover .thumb-frame { border-color: alpha(@accent_bg_color, 0.55); }
+.thumb-frame {
+  border-radius: 12px;
+  background-color: #0c0c12;
+  border: 1px solid alpha(#ffffff, 0.10);
+}
+.thumb-frame image.placeholder { color: alpha(@window_fg_color, 0.30); -gtk-icon-size: 34px; }
+.duration-badge {
+  background-color: alpha(#000000, 0.62);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 12px; font-weight: 600; font-family: monospace;
+  color: #ffffff;
+}
+.kind-badge {
+  background-color: alpha(#000000, 0.55);
+  border-radius: 6px;
+  padding: 3px;
+  color: #ffffff;
+}
+.tile-menu {
+  min-width: 26px; min-height: 26px; padding: 0;
+  border-radius: 8px;
+  background-color: alpha(#000000, 0.45); border: none; color: #ffffff;
+}
+.tile-title { font-size: 14px; font-weight: 500; }
+.tile-subtitle { font-size: 12px; color: alpha(@window_fg_color, 0.62); }
+.filter-chips button {
+  border-radius: 999px; min-height: 30px; padding: 0 14px;
+}
+.filter-chips button:checked { background-color: @accent_bg_color; color: #ffffff; }
+
+/* ── Record page ─────────────────────────────────────────────────────── */
+.big-timer { font-family: monospace; font-size: 56px; font-weight: 700; letter-spacing: 1px; }
+.big-timer.live { color: #ff6b72; }
+.meter trough { min-height: 8px; }
+.quick-card {
+  padding: 18px;
+  border-radius: 16px;
+  background-color: alpha(#ffffff, 0.05);
+  border: 1px solid alpha(#ffffff, 0.08);
+  min-width: 150px;
+}
+.quick-card:hover { background-color: alpha(#ffffff, 0.08); border-color: alpha(@accent_bg_color, 0.45); }
+.quick-card image { -gtk-icon-size: 30px; color: @accent_bg_color; }
+.quick-card .title { font-size: 15px; font-weight: 600; }
+.job-row { padding: 12px 14px; }
+
+/* ── Camera page ─────────────────────────────────────────────────────── */
+.mode-switch button { min-height: 34px; min-width: 80px; }
+.control-slider-label { font-size: 13px; }
+.highlight .thumb-frame { border: 2px solid @accent_bg_color; }

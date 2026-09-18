@@ -1,0 +1,47 @@
+# Raven Camera's build interface for imlazy. Mirrors the Makefile.
+
+[settings]
+default = "build"
+
+[commands.deps]
+desc = "Install GTK 4 and libadwaita if pkg-config cannot find them"
+run = ["sh -c 'pkg-config --exists \"gtk4 >= 4.12, libadwaita-1 >= 1.5\" || rvn install --repo-only -y gtk4 libadwaita'"]
+
+[commands.build]
+desc = "Build, optimised"
+dep = ["deps"]
+run = ["cargo build --release"]
+alias = ["b"]
+
+[commands.run]
+desc = "Run Raven Camera"
+dep = ["deps"]
+run = ["cargo run --release"]
+
+[commands.probe]
+desc = "Print the cameras, sound devices and screen capture this machine has"
+dep = ["deps"]
+run = ["cargo run --release -- --probe"]
+
+[commands.test]
+desc = "Run the unit tests"
+dep = ["deps"]
+run = ["cargo test"]
+alias = ["t"]
+
+[commands.check]
+desc = "fmt, clippy and tests"
+dep = ["deps"]
+run = ["cargo fmt --check", "cargo clippy --all-targets -- -D warnings", "cargo test"]
+
+[commands.install]
+desc = "Install to /usr/local"
+dep = ["build"]
+escalate = true
+writes = ["/usr/local/bin", "/usr/local/share"]
+run = [
+  "install -Dm755 target/release/raven-camera /usr/local/bin/raven-camera",
+  "install -Dm644 data/com.ravencamera.Raven.desktop /usr/local/share/applications/com.ravencamera.Raven.desktop",
+  "install -Dm644 data/com.ravencamera.Raven.metainfo.xml /usr/local/share/metainfo/com.ravencamera.Raven.metainfo.xml",
+  "install -Dm644 data/icons/hicolor/scalable/apps/com.ravencamera.Raven.svg /usr/local/share/icons/hicolor/scalable/apps/com.ravencamera.Raven.svg",
+]

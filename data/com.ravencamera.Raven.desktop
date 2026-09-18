@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=Camera
+GenericName=Camera and Screen Recorder
+Comment=Take photos, record video, and capture or record the screen
+Exec=raven-camera
+Icon=com.ravencamera.Raven
+Categories=AudioVideo;Video;Recorder;GTK;
+Keywords=camera;webcam;photo;video;screenshot;screen;record;recorder;capture;microphone;
+StartupWMClass=com.ravencamera.Raven
+StartupNotify=true
+Terminal=false
+Actions=screenshot;stop;
+
+[Desktop Action screenshot]
+Name=Take a Screenshot
+Exec=raven-camera --screenshot
+
+[Desktop Action stop]
+Name=Stop Recording
+Exec=raven-camera --stop

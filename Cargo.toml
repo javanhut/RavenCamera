@@ -1,0 +1,78 @@
+[package]
+name = "raven-camera"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Raven Camera: photos, video, screenshots and screen recording for Raven Linux"
+repository = "https://github.com/javanhut/RavenCamera"
+
+[[bin]]
+name = "raven-camera"
+path = "src/main.rs"
+
+[dependencies]
+# The same gtk-rs generation as Raven Settings and Raven Files, so the three
+# resolve one set of bindings. v4_12 / v1_5 are the floors on the image.
+gtk4 = { version = "0.10", features = ["v4_12"] }
+libadwaita = { version = "0.8", features = ["v1_5"] }
+glib = "0.21"
+gio = "0.21"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+# Worker threads hand results to the GTK main loop through these; glib 0.21
+# has no channel of its own any more.
+async-channel = "2"
+
+# V4L2 ioctls, mmap'd capture buffers, memfd for wl_shm pools, poll. There is
+# no crate between this app and the kernel for the camera, on purpose: the
+# ioctl surface a webcam needs is a dozen structs that have not changed in a
+# decade.
+libc = "0.2"
+
+# raven_shell_v1 client bindings, generated from the vendored XML so this repo
+# builds standalone (the way Raven Settings does it), and the window list from
+# ext-foreign-toplevel-list-v1.
+wayland-client = "0.31"
+wayland-backend = "0.3"
+wayland-scanner = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
+# The generated code for the protocol's bitfield enums names it.
+bitflags = "2"
+
+# Pictures. Pure Rust, no system libraries: webcams deliver JPEG, and photos
+# and screenshots are saved as JPEG and PNG.
+zune-jpeg = "0.4"
+jpeg-encoder = "0.6"
+png = "0.18"
+
+# Raven's own media stack, from RavenGUI: the H.264 encoder, the lossless
+# screen format, the AAC encoder and the MP4 writer. Nothing outside the tree
+# decides whether a recording can be finished. For development next to a
+# RavenGUI checkout, .cargo/config.toml patches these to ../RavenGUI.
+raven-h264 = { git = "https://github.com/javanhut/RavenGUI.git" }
+raven-rec = { git = "https://github.com/javanhut/RavenGUI.git" }
+raven-aac = { git = "https://github.com/javanhut/RavenGUI.git" }
+raven-mp4 = { git = "https://github.com/javanhut/RavenGUI.git" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# The encoders are the whole cost of finishing a recording; a debug build of
+# them is too slow to test with.
+[profile.dev.package.raven-h264]
+opt-level = 3
+[profile.dev.package.raven-aac]
+opt-level = 3
+[profile.dev.package.raven-rec]
+opt-level = 3
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+[profile.dev.package.jpeg-encoder]
+opt-level = 3

@@ -1,0 +1,9 @@
+# Build against the RavenGUI checkout beside this one rather than the copy on
+# GitHub, so a change to the encoders is tested here before it is pushed.
+# Delete this file (or build with --config to override it) to use the git
+# dependencies in Cargo.toml as they are.
+[patch."https://github.com/javanhut/RavenGUI.git"]
+raven-h264 = { path = "../RavenGUI/crates/raven-h264" }
+raven-rec = { path = "../RavenGUI/crates/raven-rec" }
+raven-aac = { path = "../RavenGUI/crates/raven-aac" }
+raven-mp4 = { path = "../RavenGUI/crates/raven-mp4" }

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.ravencamera.Raven</id>
+  <name>Raven Camera</name>
+  <summary>Photos, video, screenshots and screen recording</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <description>
+    <p>
+      Raven Camera takes photos and records video from the built-in camera or
+      any USB webcam, takes screenshots, and records the screen, a single
+      window or a region of it, with system sound, the microphone, and an
+      optional webcam overlay.
+    </p>
+    <p>
+      Recordings are captured losslessly and saved as MP4 (H.264 and AAC) or
+      M4A, using Raven Linux's own encoders.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.ravencamera.Raven.desktop</launchable>
+  <url type="homepage">https://github.com/javanhut/RavenCamera</url>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-09-18"/>
+  </releases>
+</component>
