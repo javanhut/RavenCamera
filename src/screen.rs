@@ -20,6 +20,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use wayland_client::protocol::{wl_buffer, wl_registry, wl_shm, wl_shm_pool};
+use wayland_client::backend::WaylandError;
 use wayland_client::{Connection, Dispatch, EventQueue, Proxy, QueueHandle};
 use wayland_protocols::ext::foreign_toplevel_list::v1::client::{
     ext_foreign_toplevel_handle_v1::{self, ExtForeignToplevelHandleV1},
@@ -428,6 +429,17 @@ impl State {
     }
 }
 
+/// `Ok(false)` where the socket said "not now" (EAGAIN) rather than failed:
+/// a full send buffer on flush, or only part of a message on read. Both are
+/// routine on a non-blocking socket and must not end the thread.
+fn would_block<T>(result: Result<T, WaylandError>) -> anyhow::Result<bool> {
+    match result {
+        Ok(_) => Ok(true),
+        Err(WaylandError::Io(e)) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(false),
+        Err(e) => Err(e.into()),
+    }
+}
+
 fn run(
     inbox: Receiver<Command>,
     wake: &EventFd,
@@ -463,7 +475,7 @@ fn run(
 
     loop {
         queue.dispatch_pending(&mut state)?;
-        conn.flush()?;
+        would_block(conn.flush())?;
 
         // Ask for every frame that is due, and work out how long until the
         // next one will be.
@@ -485,7 +497,9 @@ fn run(
                 timeout = timeout.min(cap.due - now);
             }
         }
-        conn.flush()?;
+        // What did not fit in the socket goes when the compositor has read
+        // some: wait for that as well as for events.
+        let flushed = would_block(conn.flush())?;
 
         let Some(guard) = queue.prepare_read() else {
             continue;
@@ -493,7 +507,11 @@ fn run(
         let mut fds = [
             libc::pollfd {
                 fd: guard.connection_fd().as_raw_fd(),
-                events: libc::POLLIN,
+                events: if flushed {
+                    libc::POLLIN
+                } else {
+                    libc::POLLIN | libc::POLLOUT
+                },
                 revents: 0,
             },
             libc::pollfd {
@@ -506,7 +524,8 @@ fn run(
         // SAFETY: two valid pollfds.
         let r = unsafe { libc::poll(fds.as_mut_ptr(), 2, ms) };
         if r > 0 && fds[0].revents & libc::POLLIN != 0 {
-            guard.read()?;
+            // Readable yet no whole message: the rest comes next time.
+            would_block(guard.read())?;
         } else {
             drop(guard);
         }
