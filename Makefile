@@ -5,7 +5,6 @@
 
 PREFIX ?= /usr/local
 APP_ID := com.ravencamera.Raven
-PC_DEPS := gtk4 >= 4.12, libadwaita-1 >= 1.5
 
 .PHONY: build run test check probe install uninstall deps
 
@@ -27,11 +26,7 @@ probe: deps
 	cargo run --release -- --probe
 
 deps:
-	@pkg-config --exists "$(PC_DEPS)" || rvn install --repo-only -y gtk4 libadwaita
-	@test -d ../RavenGUI/crates/raven-mp4 || { \
-	  echo "Raven Camera builds against ../RavenGUI (raven-h264, raven-rec, raven-aac, raven-mp4)."; \
-	  echo "Clone RavenGUI next to this repository, or delete .cargo/config.toml to use the git versions."; \
-	  exit 1; }
+	@sh scripts/deps.sh
 
 install: build
 	install -Dm755 target/release/raven-camera $(DESTDIR)$(PREFIX)/bin/raven-camera

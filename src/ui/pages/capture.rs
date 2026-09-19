@@ -242,8 +242,13 @@ fn build(app: &Rc<App>) -> (gtk::Widget, Ui) {
         let inner = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         inner.set_halign(gtk::Align::Center);
         inner.append(&gtk::Image::from_icon_name(m.icon()));
-        inner.append(&gtk::Label::new(Some(m.label())));
+        // Ellipsized, so five tabs do not set a floor on the window's width;
+        // the icon and the tooltip still say which is which.
+        let label = gtk::Label::new(Some(m.label()));
+        label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        inner.append(&label);
         b.set_child(Some(&inner));
+        b.set_tooltip_text(Some(m.label()));
         if let Some(first) = tabs.first() {
             b.set_group(Some(first));
         }
@@ -259,7 +264,9 @@ fn build(app: &Rc<App>) -> (gtk::Widget, Ui) {
     let frame = gtk::Box::new(gtk::Orientation::Vertical, 0);
     frame.add_css_class("preview-frame");
     frame.set_overflow(gtk::Overflow::Hidden);
-    frame.set_size_request(-1, 360);
+    // Enough for the badges and the control bar; the rest is vexpand. Any
+    // more and the page is taller than the window's smallest height.
+    frame.set_size_request(-1, 200);
     let stack = gtk::Stack::new();
     stack.set_vexpand(true);
     let picture = gtk::Picture::new();
@@ -374,7 +381,14 @@ fn build(app: &Rc<App>) -> (gtk::Widget, Ui) {
     let recent = gtk::Box::new(gtk::Orientation::Horizontal, 16);
     recent.set_homogeneous(true);
     recent.set_size_request(-1, 170);
-    main.append(&recent);
+    // Four fixed-width tiles are wider than a narrow window; they scroll
+    // sideways rather than hold the window open.
+    let recent_scroll = gtk::ScrolledWindow::builder()
+        .vscrollbar_policy(gtk::PolicyType::Never)
+        .propagate_natural_height(true)
+        .child(&recent)
+        .build();
+    main.append(&recent_scroll);
     root.append(&main);
 
     // ── The side panel ───────────────────────────────────────────────

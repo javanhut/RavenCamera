@@ -4,8 +4,8 @@
 default = "build"
 
 [commands.deps]
-desc = "Install GTK 4 and libadwaita if pkg-config cannot find them"
-run = ["sh -c 'pkg-config --exists \"gtk4 >= 4.12, libadwaita-1 >= 1.5\" || rvn install --repo-only -y gtk4 libadwaita'"]
+desc = "Install what the build needs and this machine lacks (pkgconf, GTK 4, libadwaita) with rvn"
+run = ["sh scripts/deps.sh"]
 
 [commands.build]
 desc = "Build, optimised"

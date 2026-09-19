@@ -6,21 +6,76 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk4 as gtk;
+use gtk4::gdk;
 use libadwaita as adw;
 use libadwaita::prelude::*;
 
 use super::pages::{self, Page};
 use super::{App, Topic};
 
+/// The size the window opens at on a screen with room for it.
+const DEFAULT_SIZE: (i32, i32) = (1480, 960);
+
+/// The part of a screen the window opens at most, leaving room for the
+/// shell's panel and a glimpse of the desktop around it.
+const SCREEN_SHARE: f64 = 0.9;
+
+/// The opening size for `monitor`: the default, or less on a smaller
+/// screen. Monitor geometry is in logical pixels, as window sizes are, so
+/// the scale factor needs no handling here.
+fn fitted_size(monitor: &gdk::Monitor) -> (i32, i32) {
+    let g = monitor.geometry();
+    let fit = |len: i32, max: i32| ((f64::from(len) * SCREEN_SHARE) as i32).min(max);
+    (
+        fit(g.width(), DEFAULT_SIZE.0),
+        fit(g.height(), DEFAULT_SIZE.1),
+    )
+}
+
+/// Open at a size that fits the screen. Before the window is shown, which
+/// screen it will land on is the compositor's to decide, so the guess is
+/// the first monitor; once the window enters its real one, it is refitted
+/// to that, unless it has been resized or maximised in between.
+fn fit_to_screen(window: &adw::ApplicationWindow) {
+    let first = gdk::Display::default()
+        .and_then(|d| d.monitors().item(0))
+        .and_downcast::<gdk::Monitor>();
+    let guess = first.as_ref().map_or(DEFAULT_SIZE, fitted_size);
+    window.set_default_size(guess.0, guess.1);
+
+    window.connect_realize(move |window| {
+        let Some(surface) = window.surface() else {
+            return;
+        };
+        let handler: Rc<RefCell<Option<glib::SignalHandlerId>>> = Rc::default();
+        let (window, h) = (window.downgrade(), handler.clone());
+        let id = surface.connect_enter_monitor(move |surface, monitor| {
+            let id = h.borrow_mut().take();
+            if let Some(id) = id {
+                surface.disconnect(id);
+            }
+            let Some(window) = window.upgrade() else {
+                return;
+            };
+            let untouched =
+                window.default_size() == guess && !window.is_maximized() && !window.is_fullscreen();
+            let size = fitted_size(monitor);
+            if untouched && size != guess {
+                window.set_default_size(size.0, size.1);
+            }
+        });
+        handler.replace(Some(id));
+    });
+}
+
 pub fn build(app: &Rc<App>, glass: bool) -> (adw::ApplicationWindow, impl Fn(&str) + 'static) {
     let window = adw::ApplicationWindow::builder()
         .application(&app.gtk_app)
         .title("Raven Camera")
-        .default_width(1480)
-        .default_height(960)
         .width_request(900)
         .height_request(620)
         .build();
+    fit_to_screen(&window);
     window.add_css_class("raven");
     window.add_css_class("camera");
     if glass {
