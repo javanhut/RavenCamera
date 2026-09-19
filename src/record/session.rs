@@ -88,6 +88,10 @@ pub struct Manifest {
     pub camera: Option<String>,
     /// For a camera recording: flip it left to right.
     pub mirror_camera: bool,
+    /// Finish the camera's picture (see `enhance::Enhancer`), in a camera
+    /// recording or an overlay. Absent from recordings made before it was.
+    #[serde(default)]
+    pub enhance_camera: bool,
     /// For a screen recording with the camera over it.
     pub overlay: Option<Overlay>,
     pub audio: Vec<AudioTrack>,

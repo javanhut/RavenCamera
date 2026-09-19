@@ -10,6 +10,7 @@
 //! format this app can read.
 
 pub mod controls;
+pub mod still;
 pub mod stream;
 pub mod v4l2;
 
@@ -59,6 +60,9 @@ pub struct Device {
     pub external: bool,
     /// Every resolution offered, largest first, each in its best format.
     pub modes: Vec<Mode>,
+    /// The ways to take a photo: the largest size the camera has, in every
+    /// format it offers that size in, best first (see [`still_modes`]).
+    pub still_modes: Vec<Mode>,
 }
 
 impl Device {
@@ -154,6 +158,7 @@ pub fn probe(path: &Path) -> Option<Device> {
         return None;
     }
     let mut modes: Vec<Mode> = Vec::new();
+    let mut all: Vec<Mode> = Vec::new();
     for &format in &formats {
         for (width, height) in node.frame_sizes(format) {
             let fps = node
@@ -167,6 +172,7 @@ pub fn probe(path: &Path) -> Option<Device> {
                 height,
                 fps,
             };
+            all.push(candidate);
             match modes
                 .iter_mut()
                 .find(|m| m.width == width && m.height == height)
@@ -195,7 +201,34 @@ pub fn probe(path: &Path) -> Option<Device> {
         driver: v4l2::cstr(&cap.driver),
         external: is_external(path),
         modes,
+        still_modes: still_modes(&all),
     })
+}
+
+/// The modes to take a photo in: the largest size, uncompressed first. A
+/// photo needs one frame, not a frame rate, so the largest size wins even at
+/// two frames a second; and at that size the camera's own JPEG compression,
+/// done in a hurry by a cheap chip, costs detail that YUYV keeps. The
+/// compressed formats stay in the list for a camera whose USB bus cannot
+/// carry the uncompressed picture.
+fn still_modes(all: &[Mode]) -> Vec<Mode> {
+    let Some(largest) = all.iter().map(|m| m.width * m.height).max() else {
+        return Vec::new();
+    };
+    let rank = |m: &Mode| match m.format {
+        v4l2::PIX_YUYV => 0,
+        v4l2::PIX_NV12 => 1,
+        v4l2::PIX_MJPEG => 2,
+        _ => 3,
+    };
+    let mut out: Vec<Mode> = all
+        .iter()
+        .filter(|m| m.width * m.height == largest)
+        .copied()
+        .collect();
+    out.sort_by_key(rank);
+    out.dedup_by_key(|m| m.format);
+    out
 }
 
 /// Whether `a` is a better way than `b` to stream the same size: faster, or
@@ -269,9 +302,25 @@ mod tests {
                 mode(v4l2::PIX_MJPEG, 1920, 1080, 30.0),
                 mode(v4l2::PIX_MJPEG, 1280, 720, 30.0),
             ],
+            still_modes: Vec::new(),
         };
         assert_eq!(dev.best_mode().unwrap().width, 1920);
         assert_eq!(dev.mode_for("1280x720").unwrap().width, 1280);
         assert_eq!(dev.mode_for("999x1").unwrap().width, 1920);
+    }
+
+    #[test]
+    fn photos_use_the_largest_size_uncompressed_first() {
+        let all = [
+            mode(v4l2::PIX_MJPEG, 1920, 1080, 30.0),
+            mode(v4l2::PIX_MJPEG, 2592, 1944, 15.0),
+            mode(v4l2::PIX_YUYV, 1920, 1080, 5.0),
+            mode(v4l2::PIX_YUYV, 2592, 1944, 2.0),
+        ];
+        let stills = still_modes(&all);
+        assert_eq!(stills.len(), 2);
+        assert_eq!((stills[0].format, stills[0].width), (v4l2::PIX_YUYV, 2592));
+        assert_eq!(stills[1].format, v4l2::PIX_MJPEG);
+        assert!(still_modes(&[]).is_empty());
     }
 }

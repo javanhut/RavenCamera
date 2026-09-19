@@ -77,6 +77,7 @@ enum Video {
         path: PathBuf,
         index: Arc<camfile::Index>,
         mirror: bool,
+        enhance: bool,
     },
 }
 
@@ -86,6 +87,7 @@ struct Pip {
     path: PathBuf,
     index: Arc<camfile::Index>,
     overlay: Overlay,
+    enhance: bool,
 }
 
 /// Turn the session in `dir` into its output file. `progress` is called
@@ -128,6 +130,7 @@ pub fn finish(
                             path,
                             index: Arc::new(index),
                             overlay: overlay.clone(),
+                            enhance: manifest.enhance_camera,
                         })
                 }
                 _ => None,
@@ -598,6 +601,7 @@ fn plan_video(dir: &Path, manifest: &Manifest) -> Result<(Video, Vec<Segment>, u
                 path,
                 index: Arc::new(index),
                 mirror: manifest.mirror_camera,
+                enhance: manifest.enhance_camera,
             },
             segments,
             total,
@@ -707,8 +711,12 @@ fn encode_segment(
             path,
             index,
             mirror,
+            enhance,
         } => {
             let mut reader = camfile::Reader::open(path)?;
+            // Each segment follows the light on its own; the levels settle
+            // within a few frames of a key frame.
+            let mut enhancer = enhance.then(crate::enhance::Enhancer::default);
             let start = segment.start as usize;
             for &(pts, offset, len) in &index.frames[start..start + segment.frames] {
                 if cancel.load(Ordering::Relaxed) {
@@ -724,6 +732,9 @@ fn encode_segment(
                         continue;
                     }
                 };
+                if let Some(e) = enhancer.as_mut() {
+                    e.frame(&mut rgba);
+                }
                 if *mirror {
                     rgba.mirror();
                 }
@@ -750,6 +761,7 @@ struct PipState<'a> {
     y: usize,
     radius: f32,
     last: Option<(usize, Rgba)>,
+    enhancer: Option<crate::enhance::Enhancer>,
 }
 
 impl<'a> PipState<'a> {
@@ -766,6 +778,7 @@ impl<'a> PipState<'a> {
             y,
             radius: (w.min(h) as f32 * 0.12).max(4.0),
             last: None,
+            enhancer: pip.enhance.then(crate::enhance::Enhancer::default),
         })
     }
 
@@ -780,7 +793,12 @@ impl<'a> PipState<'a> {
                 if self.pip.overlay.mirror {
                     img.mirror();
                 }
-                self.last = Some((i, pixels::resize(&img, self.width, self.height)));
+                // Enhanced at overlay size, where it costs next to nothing.
+                let mut small = pixels::resize(&img, self.width, self.height);
+                if let Some(e) = self.enhancer.as_mut() {
+                    e.frame(&mut small);
+                }
+                self.last = Some((i, small));
             }
         }
         if let Some((_, img)) = &self.last {

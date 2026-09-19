@@ -40,6 +40,9 @@ struct State {
     mirror: gtk::Switch,
     grid_switch: gtk::Switch,
     mic: gtk::Switch,
+    enhance: gtk::Switch,
+    full_size: gtk::Switch,
+    photo_size: gtk::Label,
     controls: gtk::Box,
 }
 
@@ -185,6 +188,26 @@ pub fn page(app: &Rc<App>) -> Page {
         card.append(r);
     }
     side.append(&card);
+
+    let look = widgets::card("Look");
+    let (r5, enhance) = widgets::switch_row("Enhance the picture", s.camera.enhance, |_| {});
+    look.append(&r5);
+    look.append(&caption(
+        "Less noise, fuller contrast, richer colour and crisper detail — only as much as \
+         this camera needs. In the preview, photos and video.",
+    ));
+    let (r6, full_size) = widgets::switch_row(
+        "Photos at full resolution",
+        s.camera.full_resolution_photos,
+        {
+            let app = app.clone();
+            move |on| app.update_settings(|x| x.camera.full_resolution_photos = on)
+        },
+    );
+    look.append(&r6);
+    let photo_size = caption("");
+    look.append(&photo_size);
+    side.append(&look);
     let controls_card = widgets::card("Picture");
     let controls = gtk::Box::new(gtk::Orientation::Vertical, 6);
     controls_card.append(&controls);
@@ -221,6 +244,9 @@ pub fn page(app: &Rc<App>) -> Page {
         mirror,
         grid_switch,
         mic,
+        enhance,
+        full_size,
+        photo_size,
         controls,
     });
     set_timer_label(&st);
@@ -252,6 +278,16 @@ pub fn page(app: &Rc<App>) -> Page {
             if sw.widget_name() != "quiet" {
                 let on = sw.is_active();
                 s.app.update_settings(|x| x.camera.mirror_preview = on);
+                restart(&s);
+            }
+        });
+    }
+    {
+        let s = st.clone();
+        st.enhance.connect_active_notify(move |sw| {
+            if sw.widget_name() != "quiet" {
+                let on = sw.is_active();
+                s.app.update_settings(|x| x.camera.enhance = on);
                 restart(&s);
             }
         });
@@ -309,9 +345,12 @@ pub fn page(app: &Rc<App>) -> Page {
             let Some(dev) = s.app.chosen_camera() else {
                 return;
             };
+            s.app.forget_controls(&dev);
             for c in controls::read(&dev.path) {
                 let _ = controls::set(&dev.path, c.id, c.default);
             }
+            // The defaults, except anti-flicker matched to the mains.
+            controls::restore(&dev.path, None);
             draw_controls(&s);
         });
     }
@@ -335,6 +374,8 @@ pub fn page(app: &Rc<App>) -> Page {
             set_active_quietly(&s.mic, x.recording.microphone);
             set_active_quietly(&s.mirror, x.camera.mirror_preview);
             set_active_quietly(&s.grid_switch, x.camera.grid);
+            set_active_quietly(&s.enhance, x.camera.enhance);
+            set_active_quietly(&s.full_size, x.camera.full_resolution_photos);
         });
     }
     // Space takes the picture.
@@ -377,6 +418,17 @@ pub fn page(app: &Rc<App>) -> Page {
     }
 }
 
+/// A line of small print under a setting.
+fn caption(text: &str) -> gtk::Label {
+    let l = gtk::Label::new(Some(text));
+    l.add_css_class("dim");
+    l.add_css_class("caption");
+    l.set_xalign(0.0);
+    l.set_wrap(true);
+    l.set_max_width_chars(36);
+    l
+}
+
 fn set_timer_label(st: &State) {
     let t = st.app.settings.borrow().camera.photo_timer;
     st.timer_label.set_text(&if t == 0 {
@@ -410,13 +462,24 @@ fn sync_devices(st: &Rc<State>) {
             })
             .unwrap_or(0);
         set_items(&st.resolution_dd, &labels, sel as u32);
+        st.photo_size.set_text(&match dev.still_modes.first() {
+            Some(m) => format!(
+                "This camera takes photos at {} × {}; the preview pauses for a moment \
+                 while it does.",
+                m.width, m.height
+            ),
+            None => String::new(),
+        });
     } else {
         set_items(&st.resolution_dd, &[], 0);
+        st.photo_size.set_text("");
     }
 }
 
 fn restart(st: &Rc<State>) {
-    if !st.visible.get() {
+    // While a full-size photo is taken the last picture stays; the camera
+    // coming back says so with Topic::Cameras.
+    if !st.visible.get() || st.app.camera_busy() {
         return;
     }
     st.preview.borrow_mut().take();
@@ -439,8 +502,11 @@ fn restart(st: &Rc<State>) {
             st.stack.set_visible_child_name("picture");
             st.shutter.set_sensitive(true);
             let (picture, grid) = (st.picture.clone(), st.grid.clone());
-            let mirror = st.app.settings.borrow().camera.mirror_preview;
-            *st.preview.borrow_mut() = Some(preview::camera(&stream, mirror, move |t| {
+            let (mirror, enhance) = {
+                let x = st.app.settings.borrow();
+                (x.camera.mirror_preview, x.camera.enhance)
+            };
+            *st.preview.borrow_mut() = Some(preview::camera(&stream, mirror, enhance, move |t| {
                 preview::show(&picture, &t);
                 if grid.is_visible() {
                     grid.queue_draw();
@@ -471,13 +537,12 @@ fn draw_controls(st: &Rc<State>) {
         return;
     }
     for c in list {
-        let path = dev.path.clone();
         let id = c.id;
         let app = st.app.clone();
-        let set = move |v: i32| {
-            if let Err(e) = controls::set(&path, id, v) {
-                tracing::debug!("control {id:#x}: {e}");
-            }
+        let dev = dev.clone();
+        let set = move |v: i32| match controls::set(&dev.path, id, v) {
+            Ok(()) => app.remember_control(&dev, id, v),
+            Err(e) => tracing::debug!("control {id:#x}: {e}"),
         };
         match c.kind {
             Kind::Slider { min, max, step } => {
@@ -527,7 +592,9 @@ fn draw_controls(st: &Rc<State>) {
                 st.controls.append(&widgets::field(&c.name, &dd));
             }
         }
-        let _ = &app;
+        if let Some(hint) = c.hint {
+            st.controls.append(&caption(hint));
+        }
     }
 }
 

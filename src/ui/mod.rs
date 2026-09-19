@@ -91,6 +91,10 @@ pub struct App {
     pub leftovers: RefCell<Vec<(PathBuf, Manifest)>>,
     camera: RefCell<Option<Arc<camera::Stream>>>,
     camera_users: Cell<u32>,
+    /// The camera is stopped while a full-size photo is taken.
+    camera_busy: Cell<bool>,
+    /// A settings save is due shortly (see [`App::save_settings_soon`]).
+    save_due: Cell<bool>,
     capture: RefCell<Option<(screen::Source, screen::Options, Arc<screen::Capture>)>>,
     window: RefCell<Option<adw::ApplicationWindow>>,
     listeners: RefCell<Vec<Listener>>,
@@ -206,6 +210,9 @@ impl App {
     /// now name another camera or size) if need be. Pages call
     /// [`App::camera_acquire`] while they show it.
     pub fn camera_stream(&self) -> anyhow::Result<Arc<camera::Stream>> {
+        if self.camera_busy.get() {
+            anyhow::bail!("the camera is taking a photo");
+        }
         let device = self
             .chosen_camera()
             .ok_or_else(|| anyhow::anyhow!("no camera is connected"))?;
@@ -224,6 +231,10 @@ impl App {
         }
         // Drop the old stream first: the same camera cannot stream twice.
         self.camera.borrow_mut().take();
+        camera::controls::restore(
+            &device.path,
+            self.settings.borrow().camera.controls.get(&device.key()),
+        );
         let stream = Arc::new(camera::Stream::start(&device, mode)?);
         *self.camera.borrow_mut() = Some(stream.clone());
         Ok(stream)
@@ -242,6 +253,67 @@ impl App {
         if n == 0 {
             self.camera.borrow_mut().take();
         }
+    }
+
+    /// Whether the camera is stopped for a full-size photo; pages leave
+    /// their previews as they are until [`Topic::Cameras`] says it is back.
+    pub fn camera_busy(&self) -> bool {
+        self.camera_busy.get()
+    }
+
+    /// Stop the camera so a photo can be taken in another mode. `false` if
+    /// it cannot be stopped now, because a recording is using it.
+    pub fn camera_pause(&self) -> bool {
+        if self.camera_busy.get() || self.recording.borrow().is_some() {
+            return false;
+        }
+        self.camera_busy.set(true);
+        self.camera.borrow_mut().take();
+        true
+    }
+
+    /// The photo is taken: the pages start their previews again.
+    pub fn camera_resume(&self) {
+        self.camera_busy.set(false);
+        self.notify(Topic::Cameras);
+    }
+
+    /// Remember a picture control changed by hand on `device`. A slider
+    /// sends a stream of these, so the file is written once it settles
+    /// rather than for each, and no page is told: none shows them but the
+    /// Camera page, which already does.
+    pub fn remember_control(self: &Rc<Self>, device: &camera::Device, id: u32, value: i32) {
+        self.settings
+            .borrow_mut()
+            .camera
+            .controls
+            .entry(device.key())
+            .or_default()
+            .insert(camera::controls::key(id), value);
+        self.save_settings_soon();
+    }
+
+    /// Forget the controls changed by hand on `device`.
+    pub fn forget_controls(self: &Rc<Self>, device: &camera::Device) {
+        self.settings
+            .borrow_mut()
+            .camera
+            .controls
+            .remove(&device.key());
+        self.save_settings_soon();
+    }
+
+    fn save_settings_soon(self: &Rc<Self>) {
+        if self.save_due.replace(true) {
+            return;
+        }
+        let app = self.clone();
+        glib::timeout_add_local_once(Duration::from_millis(600), move || {
+            app.save_due.set(false);
+            if let Err(e) = app.settings.borrow().save() {
+                app.error("Could not save settings", &e);
+            }
+        });
     }
 
     /// Restart the camera, for a new device or size.
@@ -664,6 +736,8 @@ fn ensure(gtk_app: &adw::Application, state: &Rc<RefCell<Option<Rc<App>>>>) -> R
         leftovers: RefCell::default(),
         camera: RefCell::new(None),
         camera_users: Cell::new(0),
+        camera_busy: Cell::new(false),
+        save_due: Cell::new(false),
         capture: RefCell::new(None),
         window: RefCell::new(None),
         listeners: RefCell::default(),

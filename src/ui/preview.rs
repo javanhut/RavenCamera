@@ -21,6 +21,7 @@ use gtk4::gdk;
 use gtk4::prelude::*;
 
 use crate::camera;
+use crate::enhance::Enhancer;
 use crate::pixels::Rgba;
 use crate::screen;
 
@@ -119,13 +120,16 @@ fn attach(
     Handle { stop }
 }
 
-/// Show `stream` through `on_frame`, mirrored if `mirror`.
+/// Show `stream` through `on_frame`, mirrored if `mirror`, finished by
+/// [`Enhancer`] if `enhance`, as photos and videos will be.
 pub fn camera(
     stream: &camera::Stream,
     mirror: bool,
+    enhance: bool,
     on_frame: impl Fn(gdk::Texture) + 'static,
 ) -> Handle {
     let frames = stream.subscribe(1);
+    let mut enhancer = enhance.then(Enhancer::default);
     attach(
         "preview-camera",
         move |stop| match frames.recv_timeout(Duration::from_millis(200)) {
@@ -133,6 +137,9 @@ pub fn camera(
                 // Only the newest: drop what queued while decoding.
                 let frame = frames.try_iter().last().unwrap_or(frame);
                 let mut img = frame.to_rgba().ok()?;
+                if let Some(e) = enhancer.as_mut() {
+                    e.frame(&mut img);
+                }
                 if mirror {
                     img.mirror();
                 }

@@ -148,6 +148,7 @@ impl Live {
             screen: plan.screen.as_ref().map(|_| "screen.rvr".into()),
             camera: plan.camera.as_ref().map(|_| "camera.rcam".into()),
             mirror_camera: plan.kind == Kind::Camera && settings.camera.mirror_saved,
+            enhance_camera: settings.camera.enhance,
             overlay: (plan.screen.is_some() && plan.camera.is_some()).then(|| Overlay {
                 corner: rec.overlay_corner,
                 percent: rec.overlay_percent.clamp(10, 50),

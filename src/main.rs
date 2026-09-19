@@ -4,6 +4,7 @@
 
 mod audio;
 mod camera;
+mod enhance;
 mod library;
 mod naming;
 mod paths;
@@ -57,6 +58,13 @@ fn probe() {
         );
         for m in &dev.modes {
             println!("    {} {}", camera::v4l2::fourcc_name(m.format), m.label());
+        }
+        for m in &dev.still_modes {
+            println!(
+                "    photo {} {}",
+                camera::v4l2::fourcc_name(m.format),
+                m.label()
+            );
         }
         for c in camera::controls::read(&dev.path) {
             println!(
@@ -158,6 +166,7 @@ fn record_from_shell(what: Option<&str>, seconds: Option<f64>) -> glib::ExitCode
                 eprintln!("the camera has no usable mode");
                 return glib::ExitCode::FAILURE;
             };
+            camera::controls::restore(&dev.path, settings.camera.controls.get(&dev.key()));
             match camera::Stream::start(&dev, mode) {
                 Ok(s) => (record::session::Kind::Camera, Some(std::sync::Arc::new(s))),
                 Err(e) => {

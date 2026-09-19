@@ -1189,7 +1189,9 @@ fn refresh(st: &Rc<State>) {
     if !st.visible.get() {
         return;
     }
-    if st.app.is_recording() {
+    // While a full-size photo is taken the last picture stays; the camera
+    // coming back says so with Topic::Cameras.
+    if st.app.is_recording() || st.app.camera_busy() {
         return;
     }
     stop_previews(st);
@@ -1297,6 +1299,7 @@ fn refresh(st: &Rc<State>) {
                     *st.preview.borrow_mut() = Some(preview::camera(
                         &stream,
                         settings.camera.mirror_preview,
+                        settings.camera.enhance,
                         move |t| {
                             preview::show(&picture, &t);
                         },
@@ -1355,8 +1358,11 @@ fn start_pip(st: &Rc<State>, corner: Corner) {
     pip.set_margin_start(20);
     pip.set_margin_top(if v == gtk::Align::Start { 60 } else { 0 });
     pip.set_visible(true);
-    let mirror = st.app.settings.borrow().camera.mirror_preview;
-    *st.pip_preview.borrow_mut() = Some(preview::camera(&stream, mirror, move |t| {
+    let (mirror, enhance) = {
+        let s = st.app.settings.borrow();
+        (s.camera.mirror_preview, s.camera.enhance)
+    };
+    *st.pip_preview.borrow_mut() = Some(preview::camera(&stream, mirror, enhance, move |t| {
         preview::show(&pip, &t)
     }));
 }

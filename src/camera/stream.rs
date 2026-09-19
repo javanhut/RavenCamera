@@ -175,13 +175,6 @@ impl Stream {
     pub fn ended(&self) -> Option<Ended> {
         self.ended.lock().unwrap().clone()
     }
-
-    /// The next frame, waiting up to `timeout` for it.
-    pub fn next_frame(&self, timeout: Duration) -> Result<Arc<Frame>> {
-        let rx = self.subscribe(1);
-        rx.recv_timeout(timeout)
-            .map_err(|_| anyhow::anyhow!("the camera sent no picture"))
-    }
 }
 
 impl Drop for Stream {

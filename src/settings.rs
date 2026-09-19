@@ -4,6 +4,7 @@
 //! is logged and replaced by the defaults rather than stopping the app. A
 //! setting added in a later version reads as its default from an older file.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -230,6 +231,16 @@ pub struct Camera {
     pub grid: bool,
     /// Seconds between pressing the shutter and the photo.
     pub photo_timer: u32,
+    /// Levels, colour and sharpness finished in software, the way a phone
+    /// finishes its camera's pictures.
+    pub enhance: bool,
+    /// Take photos in the camera's largest mode, which is usually far larger
+    /// than the preview's, at the cost of a second's pause.
+    pub full_resolution_photos: bool,
+    /// Picture controls changed by hand, by camera (its key) and control id
+    /// (`0x…`), put back whenever that camera starts — the camera itself
+    /// forgets them when it is unplugged.
+    pub controls: BTreeMap<String, BTreeMap<String, i32>>,
 }
 
 impl Default for Camera {
@@ -242,6 +253,9 @@ impl Default for Camera {
             photo_format: ImageFormat::Jpeg,
             grid: false,
             photo_timer: 0,
+            enhance: true,
+            full_resolution_photos: true,
+            controls: BTreeMap::new(),
         }
     }
 }
@@ -373,11 +387,17 @@ mod tests {
         s.recording.fps = 60;
         s.recording.output_size = OutputSize::P720;
         s.camera.resolution = "1280x720".into();
+        s.camera
+            .controls
+            .entry("HD Webcam: C270".into())
+            .or_default()
+            .insert("0x980900".into(), 140);
         s.save_to(&file).unwrap();
         let back = Settings::load_from(&file);
         assert_eq!(back.recording.fps, 60);
         assert_eq!(back.recording.output_size, OutputSize::P720);
         assert_eq!(back.camera.resolution, "1280x720");
+        assert_eq!(back.camera.controls["HD Webcam: C270"]["0x980900"], 140);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -387,6 +407,7 @@ mod tests {
         assert_eq!(s.recording.fps, 24);
         assert!(s.recording.show_cursor);
         assert_eq!(s.name_prefix, "Raven Camera");
+        assert!(s.camera.enhance && s.camera.full_resolution_photos);
         let dir = std::env::temp_dir().join(format!("raven-camera-garbage-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("camera.toml");

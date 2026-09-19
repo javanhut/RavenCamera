@@ -16,6 +16,8 @@ use std::time::Duration;
 use gtk4 as gtk;
 use gtk4::prelude::*;
 
+use anyhow::Context;
+
 use super::App;
 use crate::library;
 use crate::pixels;
@@ -85,13 +87,53 @@ pub fn save_screen_still(app: &Rc<App>, capture: Arc<screen::Capture>, copy: boo
 }
 
 /// Take the next camera frame and save it as a photo.
+/// Take a photo with the camera `stream` comes from and save it: in the
+/// camera's largest mode if the settings say so and that is not the mode
+/// already streaming, which stops the preview for the second or so that
+/// takes; otherwise, or while a recording has the camera, from the stream
+/// as it is.
 pub fn save_photo(app: &Rc<App>, stream: Arc<crate::camera::Stream>) {
     let settings = app.settings.borrow().clone();
+    let device = stream.device.clone();
+    let larger = device.still_modes.first().is_some_and(|m| {
+        (m.format, m.width, m.height) != (stream.mode.format, stream.mode.width, stream.mode.height)
+    });
+    let full = settings.camera.full_resolution_photos
+        && larger
+        && !app.is_recording()
+        && !app.camera_busy();
+    let stream = if full {
+        // Ours goes first: the camera streams to one reader.
+        drop(stream);
+        app.camera_pause();
+        None
+    } else {
+        Some(stream)
+    };
     let app = app.clone();
     super::spawn(
         move || -> anyhow::Result<std::path::PathBuf> {
-            let frame = stream.next_frame(Duration::from_secs(3))?;
-            let mut img = frame.to_rgba()?;
+            let enhance = settings.camera.enhance;
+            // Enhanced, a photo is a short burst merged, which takes most of
+            // the noise out of it.
+            let frames = match stream {
+                Some(stream) => {
+                    let n = if enhance {
+                        crate::camera::still::burst_len(stream.mode.fps)
+                    } else {
+                        1
+                    };
+                    crate::camera::still::frames(&stream, n, false)?
+                }
+                None => crate::camera::still::capture(&device, &device.still_modes, enhance)?,
+            };
+            let mut img = if enhance {
+                let mut img = crate::enhance::stack(&frames).context("no picture to save")?;
+                crate::enhance::photo(&mut img);
+                img
+            } else {
+                frames.into_iter().next().context("no picture to save")?
+            };
             if settings.camera.mirror_saved {
                 img.mirror();
             }
@@ -102,12 +144,17 @@ pub fn save_photo(app: &Rc<App>, stream: Arc<crate::camera::Stream>) {
                 settings.camera.photo_format,
             )
         },
-        move |r| match r {
-            Ok(path) => {
-                app.notify(super::Topic::Library);
-                app.after_capture(&path, "Photo saved");
+        move |r| {
+            if full {
+                app.camera_resume();
             }
-            Err(e) => app.error("Could not take the photo", &e),
+            match r {
+                Ok(path) => {
+                    app.notify(super::Topic::Library);
+                    app.after_capture(&path, "Photo saved");
+                }
+                Err(e) => app.error("Could not take the photo", &e),
+            }
         },
     );
 }
