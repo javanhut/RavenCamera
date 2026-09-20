@@ -19,8 +19,8 @@ use std::sync::mpsc::{self, Receiver, Sender, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use wayland_client::protocol::{wl_buffer, wl_registry, wl_shm, wl_shm_pool};
 use wayland_client::backend::WaylandError;
+use wayland_client::protocol::{wl_buffer, wl_registry, wl_shm, wl_shm_pool};
 use wayland_client::{Connection, Dispatch, EventQueue, Proxy, QueueHandle};
 use wayland_protocols::ext::foreign_toplevel_list::v1::client::{
     ext_foreign_toplevel_handle_v1::{self, ExtForeignToplevelHandleV1},
@@ -696,6 +696,9 @@ impl Dispatch<RavenOutputLayoutV1, ()> for State {
                     state.emit(Event::Outputs(outputs));
                 }
             }
+            // Rotation and the main screen: bound at version 4 they are not
+            // sent, and the sizes in `output` are already the turned ones.
+            _ => {}
         }
     }
 }
@@ -908,5 +911,26 @@ fn monotonic_to_instant(secs: u64, nsec: u32) -> Instant {
         Instant::now() - Duration::from_nanos(ago as u64)
     } else {
         Instant::now()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Opcodes are positions in the XML, so a copy that has fallen behind
+    /// Huginn's does not merely lack the new messages: every message after
+    /// one Huginn inserted is misnumbered, and the connection dies on the
+    /// first of them. Skipped where there is no RavenGUI checkout to compare.
+    #[test]
+    fn the_protocol_is_huginns() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let Ok(theirs) = std::fs::read(root.join("../RavenGUI/protocols/raven-shell-v1.xml"))
+        else {
+            return;
+        };
+        let ours = std::fs::read(root.join("protocols/raven-shell-v1.xml")).unwrap();
+        assert!(
+            ours == theirs,
+            "protocols/raven-shell-v1.xml differs from RavenGUI's: copy it over"
+        );
     }
 }

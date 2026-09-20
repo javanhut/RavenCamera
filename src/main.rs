@@ -94,12 +94,34 @@ fn probe() {
     }
     println!("== screen");
     let (tx, rx) = async_channel::unbounded();
-    let _screen = screen::Screen::connect(tx);
+    let screen = screen::Screen::connect(tx);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    let mut outputs = Vec::new();
     while std::time::Instant::now() < deadline {
         match rx.try_recv() {
-            Ok(e) => println!("    {e:?}"),
+            Ok(e) => {
+                println!("    {e:?}");
+                if let screen::Event::Outputs(o) = e {
+                    outputs = o;
+                }
+            }
             Err(_) => std::thread::sleep(std::time::Duration::from_millis(50)),
+        }
+    }
+    // A frame of the focused screen: the list above arriving does not show
+    // that capture itself works.
+    if let Some(output) = outputs.iter().find(|o| o.focused).or(outputs.first()) {
+        let capture = screen.capture(
+            screen::Source::Output(output.name.clone()),
+            screen::Options::default(),
+            10.0,
+        );
+        match capture
+            .subscribe(1)
+            .recv_timeout(std::time::Duration::from_secs(3))
+        {
+            Ok(f) => println!("    frame of {}: {} × {}", output.name, f.width, f.height),
+            Err(_) => println!("    no frame of {} within 3 s", output.name),
         }
     }
     println!("== unfinished recordings");
