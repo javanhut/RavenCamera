@@ -1,0 +1,62 @@
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Raven Camera, light: laid over camera.css (and raven-glass-light.css) when
+   the desktop's theme mode is light. The window, sidebar and cards take the
+   bright ground; the viewfinder and everything floating over it stay dark,
+   because they sit on the picture, not on the window.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.camera-root { background-color: @window_bg_color; }
+window.glass .camera-root { background-color: alpha(#f2f2f7, 0.88); }
+.sidebar-footer-rule { background-color: alpha(#000000, 0.18); }
+
+.source-tabs { background-color: alpha(#000000, 0.035); border-color: alpha(#000000, 0.08); }
+.source-tabs button { background-color: transparent; border-color: transparent; box-shadow: none; }
+.source-tabs button:hover { background-color: alpha(#000000, 0.05); }
+.source-tabs button:checked {
+  background-color: transparent;
+  box-shadow: inset 0 1px 0 alpha(#ffffff, 0.30), 0 0 0 1px alpha(@accent_bg_color, 0.55);
+  color: @window_fg_color;
+}
+
+.panel-card, .quick-card {
+  background-color: alpha(#ffffff, 0.72);
+  border-color: alpha(#000000, 0.07);
+  box-shadow: 0 1px 2px alpha(#000000, 0.05);
+}
+.quick-card { background-color: alpha(#ffffff, 0.72); }
+.quick-card:hover { background-color: alpha(#ffffff, 0.95); border-color: alpha(@accent_bg_color, 0.45); }
+.inset-row, .path-box { background-color: alpha(#000000, 0.035); border-color: alpha(#000000, 0.07); }
+.thumb-frame { background-color: #e4e4ea; border-color: alpha(#000000, 0.08); }
+.link-button, .link-button:hover, .tile { background-color: transparent; border-color: transparent; box-shadow: none; }
+
+/* On the picture: dark whatever the window is. The light sheet's plain
+   `button` rules sit in a higher provider, so they are restated here. */
+.preview-frame, .control-bar, .preview-badge, .preview-picker, .countdown { color: #f4f4f8; }
+.preview-frame dropdown > button, .preview-picker {
+  background-color: alpha(#0b0b10, 0.62);
+  border-color: alpha(#ffffff, 0.12);
+  box-shadow: none;
+  color: #f4f4f8;
+}
+.control-bar button:not(.rec-button):not(.shutter) {
+  background-color: alpha(#ffffff, 0.06);
+  border-color: alpha(#ffffff, 0.10);
+  box-shadow: none;
+  color: #f4f4f8;
+}
+.control-bar .round { background-color: transparent; border-color: transparent; }
+.control-bar .round:hover { background-color: alpha(#ffffff, 0.08); }
+.control-bar separator { background-color: alpha(#ffffff, 0.12); }
+.tile-menu { background-color: alpha(#000000, 0.45); border-color: transparent; box-shadow: none; color: #ffffff; }
+.rec-button {
+  border-color: alpha(#ffffff, 0.14);
+  box-shadow: 0 0 0 4px alpha(@record_color, 0.25), 0 0 24px alpha(@accent_bg_color, 0.45), 0 6px 18px alpha(#000000, 0.45);
+  color: #ffffff;
+}
+.shutter {
+  background-color: #f4f4f8;
+  border-color: alpha(#ffffff, 0.30);
+  box-shadow: 0 0 0 3px alpha(#000000, 0.35), 0 6px 18px alpha(#000000, 0.40);
+}
+.shutter:hover { background-color: #ffffff; }
