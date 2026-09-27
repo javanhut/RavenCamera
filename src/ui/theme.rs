@@ -37,6 +37,7 @@ struct Appearance {
     theme_mode: String,
     accent: String,
     transparency: Option<bool>,
+    glass_theme: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -121,7 +122,7 @@ pub fn load() -> bool {
     desk.glass()
 }
 
-/// Light or dark, the accent, and glass on the open windows.
+/// Light or dark, the accent, the glass theme, and glass on the open windows.
 fn apply(desk: &Desktop) {
     let Some(display) = gtk::gdk::Display::default() else {
         return;
@@ -129,8 +130,9 @@ fn apply(desk: &Desktop) {
     adw::StyleManager::default().set_color_scheme(desk.color_scheme());
     let accent = desk.accent();
     let css = format!(
-        "@define-color accent_bg_color {accent};\n@define-color accent_color {accent};\n{}",
-        if desk.light() { LIGHT_CSS } else { "" }
+        "@define-color accent_bg_color {accent};\n@define-color accent_color {accent};\n{}{}",
+        if desk.light() { LIGHT_CSS } else { "" },
+        crate::glass_tint::css(&desk.appearance.glass_theme, desk.light()),
     );
     OVERRIDES.with(|slot| {
         if let Some(old) = slot.borrow_mut().take() {

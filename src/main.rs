@@ -5,6 +5,7 @@
 mod audio;
 mod camera;
 mod enhance;
+mod glass_tint;
 mod library;
 mod naming;
 mod paths;
