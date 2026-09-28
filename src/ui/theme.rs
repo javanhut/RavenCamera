@@ -1,6 +1,6 @@
-//! The look: Raven Glass (`data/raven-glass.css`, the stylesheet shared with
-//! Settings, Store and Power, kept identical to theirs), then the classes
-//! only a camera has — the viewfinder, the floating control bar, the record
+//! The look: Raven Glass (the stylesheet every Raven app shares, from the
+//! raven-glass crate in RavenGUI, read from /usr/share/raven/glass/), then
+//! the classes only a camera has — the viewfinder, the floating control bar, the record
 //! button.
 //!
 //! The accent is the person's, from `~/.config/raven/desktop.toml`, as in
@@ -20,16 +20,11 @@ use serde::Deserialize;
 
 const DEFAULT_ACCENT: &str = "#7AA2F7";
 
-pub const CSS: &str = concat!(
-    include_str!("../../data/raven-glass.css"),
-    include_str!("../../data/camera.css"),
-);
+/// Laid over Raven Glass.
+const CAMERA_CSS: &str = include_str!("../../data/camera.css");
 
-/// Laid over [`CSS`] when the desktop is light.
-const LIGHT_CSS: &str = concat!(
-    include_str!("../../data/raven-glass-light.css"),
-    include_str!("../../data/camera-light.css"),
-);
+/// Laid over Raven Glass, light, when the desktop is light.
+const CAMERA_LIGHT_CSS: &str = include_str!("../../data/camera-light.css");
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
@@ -110,7 +105,7 @@ const DESKTOP_SETTLE: Duration = Duration::from_millis(150);
 pub fn load() -> bool {
     let display = gtk::gdk::Display::default().expect("no display");
     let base = gtk::CssProvider::new();
-    base.load_from_string(CSS);
+    base.load_from_string(&format!("{}{CAMERA_CSS}", raven_glass::base_css()));
     gtk::style_context_add_provider_for_display(
         &display,
         &base,
@@ -129,10 +124,14 @@ fn apply(desk: &Desktop) {
     };
     adw::StyleManager::default().set_color_scheme(desk.color_scheme());
     let accent = desk.accent();
+    let light = if desk.light() {
+        format!("{}{CAMERA_LIGHT_CSS}", raven_glass::light_css())
+    } else {
+        String::new()
+    };
     let css = format!(
-        "@define-color accent_bg_color {accent};\n@define-color accent_color {accent};\n{}{}",
-        if desk.light() { LIGHT_CSS } else { "" },
-        crate::glass_tint::css(&desk.appearance.glass_theme, desk.light()),
+        "@define-color accent_bg_color {accent};\n@define-color accent_color {accent};\n{light}{}",
+        raven_glass::tint::css(&desk.appearance.glass_theme, desk.light()),
     );
     OVERRIDES.with(|slot| {
         if let Some(old) = slot.borrow_mut().take() {

@@ -843,6 +843,7 @@ dependencies = [
  "libc",
  "png",
  "raven-aac",
+ "raven-glass",
  "raven-h264",
  "raven-mp4",
  "raven-rec",
@@ -857,6 +858,10 @@ dependencies = [
  "wayland-scanner",
  "zune-jpeg",
 ]
+
+[[package]]
+name = "raven-glass"
+version = "0.0.1"
 
 [[package]]
 name = "raven-h264"

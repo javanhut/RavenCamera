@@ -1,6 +1,6 @@
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Raven Camera, light: laid over camera.css (and raven-glass-light.css) when
+   Raven Camera, light: laid over camera.css (and Raven Glass, light) when
    the desktop's theme mode is light. The window, sidebar and cards take the
    bright ground; the viewfinder and everything floating over it stay dark,
    because they sit on the picture, not on the window.
